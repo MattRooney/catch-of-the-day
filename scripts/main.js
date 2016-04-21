@@ -10,14 +10,17 @@ var createBrowserHistory = require('history/lib/createBrowserHistory');
 
 var h = require('./helpers')
 
-/* App */
-
+// App
 var App = React.createClass({
   getInitialState : function(){
     return {
       fishes : {},
       order : {},
     }
+  },
+  addToOrder : function(key) {
+    this.state.order[key] = this.state.order[key] + 1 || 1;
+    this.setState({ order : this.state.order });
   },
   addFish : function(fish){
     var timestamp = (new Date()).getTime();
@@ -32,7 +35,8 @@ var App = React.createClass({
     });
   },
   renderFish : function(key) {
-    return <Fish key={key} index={key} details={this.state.fishes[key]}/>
+    return <Fish key={key} index={key} details={this.state.fishes[key]}
+      addToOrder={this.addToOrder} />
   },
   render : function() {
     return (
@@ -43,7 +47,7 @@ var App = React.createClass({
             {Object.keys(this.state.fishes).map(this.renderFish)}
           </ul>
         </div>
-        <Order/>
+        <Order fishes={this.state.fishes} order={this.state.order}/>
         <Inventory addFish={this.addFish} loadSamples={this.loadSamples}/>
       </div>
     )
@@ -52,8 +56,14 @@ var App = React.createClass({
 
 // Fish <Fish />
 var Fish = React.createClass({
+  onButtonClick : function() {
+    var key = this.props.index;
+    this.props.addToOrder(key);
+  },
   render : function() {
     var details = this.props.details;
+    var isAvailable = (details.status === 'available' ? true : false);
+    var buttonText = (isAvailable ? 'Add To Order' : 'Sold Out!')
     return (
       <li className="menu-fish">
         <img src={details.image} alt={details.name} />
@@ -62,13 +72,13 @@ var Fish = React.createClass({
           <span className="price">{h.formatPrice(details.price)}</span>
         </h3>
         <p>{details.desc}</p>
+        <button disabled={!isAvailable} onClick={this.onButtonClick}>{buttonText}</button>
       </li>
     )
   }
 });
 
-/* Header */
-
+// Header
 var Header = React.createClass({
   render : function(){
     return (
@@ -86,7 +96,6 @@ var Header = React.createClass({
 })
 
 // Add Fish Form
-
 var AddFishForm = React.createClass({
   createFish : function(event){
     // stop form from submitting
@@ -120,17 +129,52 @@ var AddFishForm = React.createClass({
   }
 })
 
-/* Order */
-
+// Order
 var Order = React.createClass({
-  render : function(){
+  renderOrder : function(key) {
+    var fish = this.props.fishes[key];
+    var count = this.props.order[key];
+    if(!fish) {
+      return <li key={key}>Sorry, fish no longer available!</li>
+    }
+
     return (
-      <p>Order</p>
+      <li>
+        {count}lbs
+        {fish.name}
+        <span className="price">{h.formatPrice(count * fish.price)}</span>
+      </li>)
+  },
+  render : function(){
+    var orderIds = Object.keys(this.props.order);
+    var total = orderIds.reduce((prevTotal, key) => {
+      var fish = this.props.fishes[key];
+      var count = this.props.order[key];
+      var isAvailable = fish && fish.status === 'available';
+
+      if(fish && isAvailable) {
+        return prevTotal + (count * parseInt(fish.price) || 0);
+      }
+
+      return prevTotal;
+    }, 0);
+
+    return (
+      <div className="order-wrap">
+        <h2 className="order-title">Your Order</h2>
+        <ul className="order">
+          {orderIds.map(this.renderOrder)}
+          <li className="total">
+            <strong>Total:</strong>
+            {h.formatPrice(total)}
+          </li>
+        </ul>
+      </div>
     )
   }
 })
-/* Inventory */
 
+// Inventory
 var Inventory = React.createClass({
   render : function(){
     return (
@@ -144,7 +188,6 @@ var Inventory = React.createClass({
 })
 
 // Store Picker
-
 var StorePicker = React.createClass({
   mixins : [History],
   goToStore : function(event) {
@@ -166,15 +209,13 @@ var StorePicker = React.createClass({
 });
 
 // Not Found
-
-  var NotFound = React.createClass({
-    render : function(){
-      return <h1>Not Found!</h1>
-    }
-  })
+var NotFound = React.createClass({
+  render : function(){
+    return <h1>Not Found!</h1>
+  }
+})
 
 // Routes
-
 var routes = (
   <Router history={createBrowserHistory()}>
   <Route path="/" component={StorePicker}/>

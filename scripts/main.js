@@ -10,13 +10,36 @@ var createBrowserHistory = require('history/lib/createBrowserHistory');
 
 var h = require('./helpers')
 
+// Firebase
+  var Rebase = require('re-base');
+  var base = Rebase.createClass('https://rooney-catch.firebaseio.com/');
+
 // App
 var App = React.createClass({
   getInitialState : function(){
     return {
-      fishes : {},
-      order : {},
+      fishes: {},
+      order: {},
     }
+  },
+  componentDidMount : function() {
+    // syncing the app with firebase - takes path &
+    base.syncState(this.props.params.storeId + '/fishes', {
+      context: this,
+      state: 'fishes'
+    });
+    // restore Order
+    var localStorageRef = localStorage.getItem('order-' + this.props.params.
+      storeId);
+
+    if(localStorageRef) {
+      // update our componenet state to reflect what is in localStorage
+      this.setState({order: JSON.parse(localStorageRef)});
+    }
+  },
+  componentWillUpdate : function(nextProps, nextState) {
+    localStorage.setItem('order-' + this.props.params.storeId,
+      JSON.stringify(nextState.order));
   },
   addToOrder : function(key) {
     this.state.order[key] = this.state.order[key] + 1 || 1;
@@ -139,7 +162,7 @@ var Order = React.createClass({
     }
 
     return (
-      <li>
+      <li key={key}>
         {count}lbs
         {fish.name}
         <span className="price">{h.formatPrice(count * fish.price)}</span>
